@@ -1,0 +1,94 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-rating
+  namespace: {{ APP_NAMESPACE }}
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: qotd-rating
+  template:
+    metadata:
+      labels:
+        app: qotd-rating
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: qotd-rating
+          image: registry.gitlab.com/quote-of-the-day/qotd-ratings-service/v4.0.0:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3004
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: ENABLE_INSTANA
+              value: "{{ .Values.enableInstana }}"
+            - name: ANOMALY_GENERATOR_URL
+              value: "http://qotd-usecase-{{LOAD_NAMESPACE }}.{{APP_HOST}}/services/ratings"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 60
+            timeoutSeconds: 20
+            periodSeconds: 60
+            successThreshold: 1
+            failureThreshold: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 5
+            timeoutSeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-rating
+  namespace: {{ APP_NAMESPACE }}
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3004
+      targetPort: 3004
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-rating
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: qotd-rating
+  namespace: {{ APP_NAMESPACE }}
+  labels:
+    app: qotd
+    tier: web
+spec:
+  to:
+    kind: Service
+    name: qotd-rating
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None

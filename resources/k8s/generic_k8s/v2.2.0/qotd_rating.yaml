@@ -1,0 +1,102 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-ratings
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-rating
+  template:
+    metadata:
+      labels:
+        app: qotd-rating
+    spec:
+      containers:
+        - resources:
+            limits:
+              cpu: 200m
+              memory: 200Mi
+            requests:
+              cpu: 25m
+              memory: 40Mi
+          terminationMessagePath: /dev/termination-log
+          name: qotd-rating
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 1
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          env:
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: ENABLE_INSTANA
+              value: "false"
+          ports:
+            - name: http
+              containerPort: 3004
+              protocol: TCP
+            - name: svc
+              containerPort: 8084
+              protocol: TCP
+          imagePullPolicy: Always
+          terminationMessagePolicy: File
+          image: >-
+            registry.gitlab.com/quote-of-the-day/qotd-ratings-service:2.2.0
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      securityContext: {}
+      schedulerName: default-scheduler
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-rating
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3004
+      targetPort: 3004
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-rating
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-rating-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8084
+      targetPort: 8084
+      protocol: TCP
+      name: svc
+  selector:
+    app: qotd-rating

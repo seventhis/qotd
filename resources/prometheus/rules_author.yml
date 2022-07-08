@@ -1,0 +1,49 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: qotd-author-alerts
+  namespace: qotd
+spec:
+  groups:
+  - name: author
+    rules:
+    - alert: AuthorVeryHighRequestLatency
+      expr: sum(rate(http_request_duration_seconds_sum{container="qotd-author",method="GET",route="/authors/#val",status="2XX"}[1m])) / sum(rate(http_request_duration_seconds_count{container="qotd-author",method="GET",route="/authors/#val",status="2XX"}[3m]))  > 0.5
+      for: 1m
+      labels:
+        severity: Critical
+      annotations:
+        summary: Author service response time over past minute is significantly high (> 0.5s)
+        nodeName: qotd-author
+        alertGroup: qotd-latency
+        expiryTime: "300"
+    - alert: AuthorVeryHighCPUUsage
+      expr: rate(process_cpu_seconds_total{container="qotd-author"}[1m]) > 0.020
+      for: 1m
+      labels:
+        severity: Critical
+      annotations:
+        summary: Author service CPU usage very high 
+        nodeName: qotd-author
+        alertGroup: qotd-cpu
+        expiryTime: "300"
+    - alert: AuthorVeryHighMemoryUsage
+      expr: nodejs_heap_size_used_bytes{container="qotd-author"} > 60000000
+      for: 1m
+      labels:
+        severity: Critical
+      annotations:
+        summary: Author service Mem usage very high
+        nodeName: qotd-author
+        alertGroup: qotd-memory
+        expiryTime: "300"
+    - alert: AuthorServiceDown
+      expr: (up{container="qotd-author"} OR on() vector(0)) != 1
+      for: 20s
+      labels:
+        severity: Critical
+      annotations:
+        summary: Author service down.
+        nodeName: qotd-author
+        alertGroup: qotd-service
+        expiryTime: "300"

@@ -1,0 +1,149 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-web
+  namespace: {{ .Values.appNamespace }}
+  labels:
+    app: qotd
+    tier: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: qotd-web
+  template:
+    metadata:
+      labels:
+        app: qotd-web
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: qotd-web
+          image: registry.gitlab.com/quote-of-the-day/qotd-web/{{ .Values.imageTag }}:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: ENABLE_INSTANA
+              value: "{{ .Values.enableInstana }}"
+            - name: INSTANA_REPORTING_URL
+              value: "{{ .Values.instanaReportingUrl }}"
+            - name: INSTANA_ENUM_MIN_JS_URL
+              value: "{{ .Values.instanaEnumMinJsUrl }}"
+            - name: INSTANA_KEY
+              value: "{{ .Values.instanaKey }}"
+            - name: ANOMALY_GENERATOR_URL
+{{ if eq .Values.useNodePort true }}
+              value: "qotd-usecase.{{ .Values.loadNamespace }}.svc.cluster.local:3012/services/web"
+{{ else }}
+              value: "http://qotd-usecase-{{ .Values.loadNamespace }}.{{ required "Name of anomaly host is required" .Values.host }}/services/web"
+{{ end }}
+            - name: QUOTE_SVC
+              value: "qotd-quote.{{ .Values.appNamespace }}.svc.cluster.local:3001"
+            - name: AUTHOR_SVC
+              value: "qotd-author.{{ .Values.appNamespace }}.svc.cluster.local:3002"
+            - name: RATING_SVC
+              value: "qotd-rating.{{ .Values.appNamespace }}.svc.cluster.local:3004"
+            - name: PDF_SVC
+              value: "qotd-pdf.{{ .Values.appNamespace }}.svc.cluster.local:3005"
+            - name: ENGRAVING_SVC
+              value: "qotd-engraving.{{ .Values.appNamespace }}.svc.cluster.local:3006"
+            - name: QRCODE_SVC
+              value: "http://qotd-qrcode.{{ .Values.appNamespace }}.svc.cluster.local:9080/qotd-qrcode/qr"
+            - name: BRANDING
+              value: "{{ .Values.branding }}"
+{{ if eq .Values.roksCluster true }}
+            - name: INSTANA_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+{{ end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 60
+            timeoutSeconds: 20
+            periodSeconds: 60
+            successThreshold: 1
+            failureThreshold: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            timeoutSeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+
+{{ if eq .Values.useNodePort true }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-web
+  namespace: {{ .Values.appNamespace }}
+  labels:
+    app: qotd
+    tier: web
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      name: http
+  selector:
+    app: qotd-web
+
+{{ else }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-web
+  namespace: {{ .Values.appNamespace }}
+  labels:
+    app: qotd
+    tier: web
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-web
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: qotd-web
+  namespace: {{ .Values.appNamespace }}
+  labels:
+    app: qotd
+    tier: web
+spec:
+  to:
+    kind: Service
+    name: qotd-web
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
+
+{{ end }}
+

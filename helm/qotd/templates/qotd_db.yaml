@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qotd-db
+  namespace: {{ .Values.appNamespace }}
+  labels:
+    app: qotd
+    tier: data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-db
+  template:
+    metadata:
+      labels:
+        app: qotd-db
+    spec:
+      containers:
+        - name: qotd-db
+          image: registry.gitlab.com/quote-of-the-day/qotd-db/{{ .Values.imageTag }}:latest
+          imagePullPolicy: Always
+          ports:
+            - name: mysql
+              containerPort: 3306
+              protocol: TCP
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "root"
+            - name: MYSQL_DATABASE
+              value: "qotd"
+        - name: anomaly
+          image: registry.gitlab.com/quote-of-the-day/qotd-null:{{ .Values.imageTag }}
+          imagePullPolicy: Always
+          env:
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: ENABLE_INSTANA
+              value: "{{ .Values.enableInstana }}"
+            - name: ANOMALY_GENERATOR_URL
+{{ if eq .Values.useNodePort true }}
+              value: "qotd-usecase.{{ .Values.loadNamespace }}.svc.cluster.local:3012/services/db"
+{{ else }}
+              value: "http://qotd-usecase-{{ .Values.loadNamespace }}.{{ required "Name of anomaly host is required" .Values.host }}/services/db"
+{{ end }}
+{{ if eq .Values.roksCluster true }}
+            - name: INSTANA_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+{{ end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-db
+  namespace: {{ .Values.appNamespace }}
+  labels:
+    app: qotd
+    tier: data
+spec:
+  type: ClusterIP
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+      protocol: TCP 
+  selector:
+    app: qotd-db

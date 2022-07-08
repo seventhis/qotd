@@ -1,0 +1,123 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-ratings
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-rating
+  template:
+    metadata:
+      labels:
+        app: qotd-rating
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: qotd-rating
+          image: registry.gitlab.com/quote-of-the-day/qotd-ratings-service:2.2.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3004
+              protocol: TCP
+            - name: svc
+              containerPort: 8084
+              protocol: TCP
+          env:
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: ENABLE_INSTANA
+              value: "false"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-rating
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3004
+      targetPort: 3004
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-rating
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-rating-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8084
+      targetPort: 8084
+      protocol: TCP
+      name: svc
+  selector:
+    app: qotd-rating
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: qotd-rating
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: web
+spec:
+  subdomain: ''
+  to:
+    kind: Service
+    name: qotd-rating
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: qotd-rating-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: web
+spec:
+  subdomain: ''
+  to:
+    kind: Service
+    name: qotd-rating-svc
+    weight: 100
+  port:
+    targetPort: svc
+  wildcardPolicy: None
+
+
+

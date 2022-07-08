@@ -1,0 +1,17 @@
+V:{"uniqueId":"qotd-web","entityTypes":["component"],"name":"Web","tags":["qotd"],"mergeTokens":["qotd-web-clusterip"],"matchTokens":["qotd-web"]}
+V:{"uniqueId":"qotd-rating","entityTypes":["component"],"name":"Rating","tags":["qotd"],"mergeTokens":["qotd-rating-clusterip"],"matchTokens":["qotd-rating"]}
+V:{"uniqueId":"qotd-quote","entityTypes":["component"],"name":"Quote","tags":["qotd"],"mergeTokens":["qotd-quote-clusterip"],"matchTokens":["qotd-quote"]}
+V:{"uniqueId":"qotd-author","entityTypes":["component"],"name":"Author","tags":["qotd"],"mergeTokens":["qotd-author-clusterip"],"matchTokens":["qotd-author"]}
+V:{"uniqueId":"qotd-image","entityTypes":["component"],"name":"Image","tags":["qotd"],"mergeTokens":["qotd-image-clusterip"],"matchTokens":["qotd-image"]}
+V:{"uniqueId":"qotd-pdf","entityTypes":["component"],"name":"PDF","tags":["qotd"],"mergeTokens":["qotd-pdf-clusterip"],"matchTokens":["qotd-pdf"]}
+V:{"uniqueId":"qotd-engraving","entityTypes":["component"],"name":"Engraving","tags":["qotd"],"mergeTokens":["qotd-engraving-clusterip"],"matchTokens":["qotd-engraving"]}
+V:{"uniqueId":"qotd-db","entityTypes":["database"],"name":"DB","tags":["qotd"],"mergeTokens":["qotd-db-clusterip"],"matchTokens":["qotd-db"]}
+E:{"_fromUniqueId":"qotd-web", "_toUniqueId":"qotd-rating", "_edgeType":"dependsOn" }
+E:{"_fromUniqueId":"qotd-web", "_toUniqueId":"qotd-quote", "_edgeType":"dependsOn" }
+E:{"_fromUniqueId":"qotd-web", "_toUniqueId":"qotd-author", "_edgeType":"dependsOn" }
+E:{"_fromUniqueId":"qotd-web", "_toUniqueId":"qotd-pdf", "_edgeType":"dependsOn" }
+E:{"_fromUniqueId":"qotd-web", "_toUniqueId":"qotd-engraving", "_edgeType":"dependsOn" }
+E:{"_fromUniqueId":"qotd-pdf", "_toUniqueId":"qotd-quote", "_edgeType":"dependsOn" }
+E:{"_fromUniqueId":"qotd-author", "_toUniqueId":"qotd-image", "_edgeType":"dependsOn" }
+E:{"_fromUniqueId":"qotd-quote", "_toUniqueId":"qotd-db", "_edgeType":"dependsOn" }
+E:{"_fromUniqueId":"qotd-author", "_toUniqueId":"qotd-db", "_edgeType":"dependsOn" }

@@ -1,0 +1,49 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: qotd-web-alerts
+  namespace: qotd
+spec:
+  groups:
+  - name: web
+    rules:
+    - alert: WebVeryHighRequestLatencyDailyQuote
+      expr: sum(rate(http_request_duration_seconds_sum{container="qotd-web",method="GET",route="/",status="2XX"}[1m])) / sum(rate(http_request_duration_seconds_count{container="qotd-web",method="GET",route="/",status="2XX"}[1m])) > 2.0
+      for: 1m
+      labels:
+        severity: Critical
+      annotations:
+        summary: Web service response time (for daily quote) over past minute is significantly high (> 2.0s)
+        nodeName: qotd-web
+        alertGroup: qotd-latency
+        expiryTime: "300"
+    - alert: WebVeryHighCPUUsage
+      expr: rate(process_cpu_seconds_total{container="qotd-web"}[1m]) > 0.05
+      for: 1m
+      labels:
+        severity: Critical
+      annotations:
+        summary: Web service CPU usage very high 
+        nodeName: qotd-web
+        alertGroup: qotd-cpu
+        expiryTime: "300"
+    - alert: WebVeryHighMemoryUsage
+      expr: nodejs_heap_size_used_bytes{container="qotd-web"} > 50000000
+      for: 1m
+      labels:
+        severity: Critical
+      annotations:
+        summary: Web service Mem usage very high
+        nodeName: qotd-web
+        alertGroup: qotd-memory
+        expiryTime: "300"
+    - alert: WebServiceDown
+      expr: (up{container="qotd-web"} OR on() vector(0)) != 1
+      for: 20s
+      labels:
+        severity: Critical
+      annotations:
+        summary: Web service down.
+        nodeName: qotd-web
+        alertGroup: qotd-service
+        expiryTime: "300"

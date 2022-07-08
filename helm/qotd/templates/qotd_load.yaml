@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qotd-load
+  namespace: {{ .Values.loadNamespace }}
+  labels:
+    app: qotd
+    tier: load
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: qotd-load
+  template:
+    metadata:
+      labels:
+        app: qotd-load
+    spec:
+      containers:
+        - name: main
+          image: registry.gitlab.com/quote-of-the-day/qotd-load-generator/{{ .Values.imageTag }}:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3011
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: QRCODE
+              value: "true"
+            - name: QOTD_WEB_HOST
+{{ if eq .Values.useNodePort true }}
+              value: "qotd-web.{{ .Values.appNamespace }}.svc.cluster.local:3000"
+{{ else }}
+              value: "http://qotd-web-{{ .Values.appNamespace }}.{{ required "Name of host is required" .Values.host }}/"
+{{ end }}
+

@@ -1,0 +1,247 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qotd-rating-call-distribution-overrides
+  namespace: qotd
+data:
+  overrides.json: |
+    {
+      "ratings_id": [
+        {
+            "code": 0,
+            "weight": 99
+        },
+        {
+            "code": 404,
+            "weight": 1,
+            "payload": "404 Not found",
+            "log": {
+                "template": "Resource not found: {{`{{resourceType}}`}}",
+                "fields": {
+                    "resourceType": {
+                        "type": "pickWeighted",
+                        "options": [
+                            {
+                                "value": "disk",
+                                "weight": 6
+                            },
+                            {
+                                "value": "memory",
+                                "weight": 4
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+      ]
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qotd-rating-loggers
+  namespace: qotd
+data:
+  overides.json: |
+    {
+        "id": "incident",
+        "name": "Simulated incident record",
+        "template": "incident error code: E{{`{{v1}}`}} epid={{`{{v2}}`}} dsteuid={{`{{v3}}`}} dstepid={{`{{v4}}`}} vd={{`{{user}}`}} type={{`{{type}}`}} subtype={{`{{subtype}}`}}",
+        "fields": {
+            "v1": {
+                "type": "randomInt",
+                "min": 1000,
+                "max": 9999
+            },
+            "v2": {
+                "type": "randomInt",
+                "min": 1000,
+                "max": 9999
+            },
+            "v3": {
+                "type": "randomInt",
+                "min": 1000,
+                "max": 9999
+            },
+            "v4": {
+                "type": "randomInt",
+                "min": 1000,
+                "max": 9999
+            },
+            "user": {
+                "type": "userName"
+            },
+            "type": {
+                "type": "pick",
+                "options": [ "access", "update", "weight" ]            
+            },
+            "subtype": {
+                "type": "pick",
+                "options": [ "read", "write", "delete" ]            
+            }
+        },
+        "repeat": {
+            "mean": 15000,
+            "stdev": 5000,
+            "min": 5000,
+            "max": 20000
+        }
+    }
+
+  heartbeat.json: |
+    {
+      "id": "heartbeat",
+      "name": "A regular log message indicating the health with a simple status.",
+      "template": "Heartbeat status: {{`{{STATUS}}`}}",
+      "fields": {
+          "STATUS": {
+              "type": "pickWeighted",
+              "options": [
+                  { "value": "OK", "weight": 8 },
+                  { "value": "SLOW", "weight": 2 }
+              ]            
+          }
+      },
+      "repeat": {
+          "mean": 4000,
+          "stdev": 1000,
+          "min": 3000,
+          "max": 5000
+      }
+    }
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-rating
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-rating
+  template:
+    metadata:
+      labels:
+        app: qotd-rating
+    spec:
+      volumes:
+        - name: qotd-rating-loggers
+          configMap:
+            name: qotd-rating-loggers
+            defaultMode: 420
+        - name: qotd-rating-call-distribution-overrides
+          configMap:
+            name: qotd-rating-call-distribution-overrides
+            defaultMode: 420
+      restartPolicy: Always
+      containers:
+        - name: qotd-rating
+          image: registry.gitlab.com/quote-of-the-day/qotd-ratings-service:3.1.0
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: qotd-rating-loggers
+              readOnly: true
+              mountPath: /app/loggers
+            - name: qotd-rating-call-distribution-overrides
+              readOnly: true
+              mountPath: /app/config
+          ports:
+            - name: http
+              containerPort: 3004
+              protocol: TCP
+            - name: svc
+              containerPort: 8084
+              protocol: TCP
+          env:
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: ENABLE_INSTANA
+              value: "false"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-rating
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3004
+      targetPort: 3004
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-rating
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-rating-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8084
+      targetPort: 8084
+      protocol: TCP
+      name: svc
+  selector:
+    app: qotd-rating
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: qotd-rating
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: web
+spec:
+  to:
+    kind: Service
+    name: qotd-rating
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: qotd-rating-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: web
+spec:
+  to:
+    kind: Service
+    name: qotd-rating-svc
+    weight: 100
+  port:
+    targetPort: svc
+  wildcardPolicy: None

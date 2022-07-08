@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qotd-load
+  namespace: qotd-load
+  labels:
+    app: qotd
+    tier: load
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: qotd-load
+  template:
+    metadata:
+      labels:
+        app: qotd-load
+    spec:
+      containers:
+        - name: main
+          image: registry.gitlab.com/quote-of-the-day/qotd-load-generator:3.1.1
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3011
+              protocol: TCP
+          env:
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: AUTOSTART
+              value: "true"
+            - name: QOTD_WEB_HOST
+              value: "qotd-web.qotd.svc.cluster.local:3000"
+            - name: RUNS_PER_HOUR
+              value: "65"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-load
+  namespace: qotd-load
+  labels:
+    app: qotd
+    tier: load
+spec:
+  type: NodePort
+  ports:
+    - port: 3011
+      nodePort: 30011
+      name: http
+  selector:
+    app: qotd-load

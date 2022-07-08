@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    k8s-app: qotd-monitor
+  name: qotd-monitor
+  namespace: qotd
+spec:
+  endpoints:
+  - interval: 30s
+    port: http
+    scheme: http
+  selector:
+    matchExpressions:
+      - {key: tier, operator: In, values: [web,api,data]}
+      - {key: app, operator: In, values: [qotd]}
+

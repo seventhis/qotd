@@ -1,0 +1,115 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-image
+  namespace: {{ .Values.appNamespace }}
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-image
+  template:
+    metadata:
+      labels:
+        app: qotd-image
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: qotd-image
+          image: registry.gitlab.com/quote-of-the-day/qotd-image-service/{{ .Values.imageTag }}:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3003
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: ENABLE_INSTANA
+              value: "{{ .Values.enableInstana }}"
+            - name: ANOMALY_GENERATOR_URL
+{{ if eq .Values.useNodePort true }}
+              value: "qotd-usecase.{{ .Values.loadNamespace }}.svc.cluster.local:3012/services/image"
+{{ else }}
+              value: "http://qotd-usecase-{{ .Values.loadNamespace }}.{{ required "Name of anomaly host is required" .Values.host }}/services/image"
+{{ end }}
+{{ if eq .Values.roksCluster true }}
+            - name: INSTANA_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+{{ end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 60
+            timeoutSeconds: 20
+            periodSeconds: 60
+            successThreshold: 1
+            failureThreshold: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 5
+            timeoutSeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+
+{{ if eq .Values.useNodePort true }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-image
+  namespace: {{ .Values.appNamespace }}
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3003
+      targetPort: 3003
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-image
+   
+{{ else }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-image
+  namespace: {{ .Values.appNamespace }}
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3003
+      targetPort: 3003
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-image
+
+
+{{ end }}
+

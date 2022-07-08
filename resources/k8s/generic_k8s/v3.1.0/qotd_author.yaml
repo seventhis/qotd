@@ -1,0 +1,119 @@
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: qotd-author-call-distribution-overrides
+#   namespace: qotd
+# data:
+#   overides.json: | 
+#     { }  
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: qotd-rating-loggers
+#   namespace: qotd
+# data:
+#   incident.json: | 
+#     { }
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-author
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-author
+  template:
+    metadata:
+      labels:
+        app: qotd-author
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: qotd-author
+          image: registry.gitlab.com/quote-of-the-day/qotd-author-service:3.1.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3002
+              protocol: TCP
+            - name: svc
+              containerPort: 8082
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "3002"
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: ENABLE_INSTANA
+              value: "{{ .Values.enableInstana }}"
+            - name: IMAGE_SVC
+              value: "qotd-image.qotd.svc.cluster.local:3003"
+            - name: DB_HOST
+              value: "qotd-db.qotd.svc.cluster.local"
+            - name: DB_USER
+              value: "root"
+            - name: DB_PASS
+              value: "root"
+            - name: DB_NAME
+              value: "qotd"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 10
+            timeoutSeconds: 10
+            periodSeconds: 20
+            successThreshold: 1
+            failureThreshold: 10
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "350Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-author
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3002
+      targetPort: 3002
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-author
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-author-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8082
+      targetPort: 8082
+      protocol: TCP
+      name: svc
+  selector:
+    app: qotd-author
+
+

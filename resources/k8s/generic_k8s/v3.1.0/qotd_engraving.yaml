@@ -1,0 +1,120 @@
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: qotd-engraving-call-distribution-overrides
+#   namespace: qotd
+# data:
+#   overides.json: { }  # this is just a placeholder
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: qotd-engraving-loggers
+#   namespace: qotd
+# data:
+#   overides.json: {  } # placeholder
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-engraving
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-engraving
+  template:
+    metadata:
+      labels:
+        app: qotd-engraving
+    spec:
+      # volumes:
+      #   - name: qotd-engraving-loggers
+      #     configMap:
+      #       name: qotd-engraving-loggers
+      #       defaultMode: 420
+      #   - name: qotd-engraving-call-distribution-overrides
+      #     configMap:
+      #       name: qotd-engraving-call-distribution-overrides
+      #       defaultMode: 420
+      restartPolicy: Always
+      containers:
+        - name: qotd-engraving
+          image: registry.gitlab.com/quote-of-the-day/qotd-engraving-service:3.1.0
+          imagePullPolicy: Always
+          # volumeMounts:
+          #   - name: qotd-engraving-loggers
+          #     readOnly: true
+          #     mountPath: /app/loggers
+          #   - name: qotd-engraving-call-distribution-overrides
+          #     readOnly: true
+          #     mountPath: /app/config
+          ports:
+            - name: http
+              containerPort: 3006
+              protocol: TCP
+            - name: svc
+              containerPort: 8086
+              protocol: TCP
+          env:
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: ENABLE_INSTANA
+              value: "false"
+            - name: SUPPLY_CHAIN_URL
+              value: ""
+            - name: SUPPLY_CHAIN_SIMULATE
+              value: "true"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3006
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-engraving
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3006
+      targetPort: 3006
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-engraving
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-engraving-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8086
+      targetPort: 8086
+      protocol: TCP
+      name: svc
+  selector:
+    app: qotd-engraving

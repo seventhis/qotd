@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qotd-usecase
+  namespace: qotd-load
+  labels:
+    app: qotd
+    tier: load
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-usecase
+  template:
+    metadata:
+      labels:
+        app: qotd-usecase
+    spec:
+      containers:
+        - name: main
+          image: registry.gitlab.com/quote-of-the-day/qotd-usecase-generator:3.1.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3012
+              protocol: TCP
+          env:
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: QOTD_WEB_SVC
+              value: "http://qotd-web-svc-qotd.{{ app host }}/"
+            - name: QOTD_QUOTE_SVC
+              value: "http://qotd-quote-svc-qotd.{{ app host }}/"
+            - name: QOTD_AUTHOR_SVC
+              value: "http://qotd-author-svc-qotd.{{ app host }}/"
+            - name: QOTD_IMAGE_SVC
+              value: "http://qotd-image-svc-qotd.{{ app host }}/"
+            - name: QOTD_RATING_SVC
+              value: "http://qotd-rating-svc-qotd.{{ app host }}/"
+            - name: QOTD_PDF_SVC
+              value: "http://qotd-pdf-svc-qotd.{{ app host }}/"
+            - name: QOTD_ENGRAVING_SVC
+              value: "http://qotd-engraving-svc-qotd.{{ app host }}/"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-usecase
+  namespace: qotd-load
+  labels:
+    app: qotd
+    tier: load
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3012
+      targetPort: 3012
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-usecase
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: qotd-usecase
+  namespace: qotd-load
+  labels:
+    app: qotd
+    tier: load
+spec:
+  path: /
+  to:
+    kind: Service
+    name: qotd-usecase
+  port:
+    targetPort: http
+  tls:
+    termination: edge

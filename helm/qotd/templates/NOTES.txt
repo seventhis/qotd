@@ -1,0 +1,26 @@
+{{ if eq .Values.useNodePort true }}
+
+The QotD application code is running in the {{ .Values.appNamespace }} namespace.  The route 
+can be used to access the main application UI can be found with the following command:
+
+echo http://{{ required "Name of host is required" .Values.host }}:$(kubectl get --namespace {{ .Values.appNamespace }} -o jsonpath="{.spec.ports[0].nodePort}" services qotd-web) ; echo
+
+The Anomaly Generator is deployed to the {{ .Values.loadNamespace }} namespace, its route can be found with the following command:
+
+echo http://{{ required "Name of host is required" .Values.host }}:$(kubectl get --namespace {{ .Values.loadNamespace }} -o jsonpath="{.spec.ports[0].nodePort}" services qotd-usecase) ; echo
+
+{{ else }}
+
+The QotD application code is running in the {{ .Values.appNamespace }} namespace.  The route 
+can be used to access the main application UI is
+
+http://qotd-web-{{ .Values.appNamespace }}.apps.{{ required "Name of host is required" .Values.host }} ; echo
+
+The Load Generator and Anomaly Generator are deployed to the {{ .Values.loadNamespace }} namespace, 
+and can be accessed with
+
+http://qotd-usecase-{{ .Values.loadNamespace }}.apps.{{ required "Name of host is required" .Values.host }}
+
+{{ end }}
+
+Happy quoting!

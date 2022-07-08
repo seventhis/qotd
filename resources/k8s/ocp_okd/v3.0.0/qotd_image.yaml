@@ -1,0 +1,120 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-image
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-image
+  template:
+    metadata:
+      labels:
+        app: qotd-image
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: qotd-image
+          image: registry.gitlab.com/quote-of-the-day/qotd-image-service:3.0.0
+          ports:
+            - name: http
+              containerPort: 3003
+              protocol: TCP
+            - name: svc
+              containerPort: 8083
+              protocol: TCP
+          env:
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: ENABLE_INSTANA
+              value: "false"
+          imagePullPolicy: Always
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-image
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3003
+      targetPort: 3003
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-image
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-image-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8083
+      targetPort: 8083
+      protocol: TCP
+      name: svc
+  selector:
+    app: qotd-image
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: qotd-image
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: web
+spec:
+  subdomain: ''
+  to:
+    kind: Service
+    name: qotd-image
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: qotd-image-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: web
+spec:
+  subdomain: ''
+  to:
+    kind: Service
+    name: qotd-image-svc
+    weight: 100
+  port:
+    targetPort: svc
+  wildcardPolicy: None

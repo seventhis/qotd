@@ -1,0 +1,19 @@
+host: localhost
+enableInstana: false
+supplyChainUrl: ""
+supplyChainSimulate: true
+instanaReportingUrl: ""
+instanaEnumMinJsUrl: ""
+instanaKey: ""
+branding: ""
+
+roksCluster: false
+
+appNamespace: qotd
+loadNamespace: qotd-load
+
+useNodePort: false
+
+setDefaultLoggers: false
+
+imageTag: "v4.1.0"

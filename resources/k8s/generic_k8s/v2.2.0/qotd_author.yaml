@@ -1,0 +1,96 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-author
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-author
+  template:
+    metadata:
+      labels:
+        app: qotd-author
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: qotd-author
+          image: registry.gitlab.com/quote-of-the-day/qotd-author-service:2.2.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3002
+              protocol: TCP
+            - name: svc
+              containerPort: 8082
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "3002"
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: ENABLE_INSTANA
+              value: "false"
+            - name: IMAGE_SVC
+              value: "qotd-image.qotd.svc.cluster.local:3003"
+            - name: DB_HOST
+              value: "qotd-db.qotd.svc.cluster.local"
+            - name: DB_USER
+              value: "root"
+            - name: DB_PASS
+              value: "<DB PASSWORD>"
+            - name: DB_NAME
+              value: "qotd"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "350Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-author
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3002
+      targetPort: 3002
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-author
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-author-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8082
+      targetPort: 8082
+      protocol: TCP
+      name: svc
+  selector:
+    app: qotd-author

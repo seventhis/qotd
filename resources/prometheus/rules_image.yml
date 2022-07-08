@@ -1,0 +1,49 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: qotd-image-alerts
+  namespace: qotd
+spec:
+  groups:
+  - name: image
+    rules:
+    - alert: ImageVeryHighRequestLatency
+      expr: sum(rate(http_request_duration_seconds_sum{container="qotd-image",method="GET",route="/images/#val",status="2XX"}[1m])) / sum(rate(http_request_duration_seconds_count{container="qotd-image",method="GET",route="/images/#val",status="2XX"}[3m]))  > 1.0
+      for: 1m
+      labels:
+        severity: Critical
+      annotations:
+        summary: Image service response time over past minute is significantly high (> 1.0s)
+        nodeName: qotd-image
+        alertGroup: qotd-latency
+        expiryTime: "300"
+    - alert: ImageVeryHighCPUUsage
+      expr: rate(process_cpu_seconds_total{container="qotd-image"}[1m]) > 0.020
+      for: 1m
+      labels:
+        severity: Critical
+      annotations:
+        summary: Image service CPU usage very high 
+        nodeName: qotd-image
+        alertGroup: qotd-cpu
+        expiryTime: "300"
+    - alert: ImageVeryHighMemoryUsage
+      expr: nodejs_heap_size_used_bytes{container="qotd-image"} > 50000000
+      for: 1m
+      labels:
+        severity: Critical
+      annotations:
+        summary: Image service Mem usage very high
+        nodeName: qotd-image
+        alertGroup: qotd-memory
+        expiryTime: "300"
+    - alert: ImageServiceDown
+      expr: (up{container="qotd-image"} OR on() vector(0)) != 1
+      for: 20s
+      labels:
+        severity: Critical
+      annotations:
+        summary: Image service down.
+        nodeName: qotd-image
+        alertGroup: qotd-service
+        expiryTime: "300"

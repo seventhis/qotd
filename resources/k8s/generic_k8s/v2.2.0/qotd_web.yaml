@@ -1,0 +1,115 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-web
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-web
+  template:
+    metadata:
+      labels:
+        app: qotd-web
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: qotd-web
+          image: registry.gitlab.com/quote-of-the-day/qotd-web:2.2.0
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: qotd-web-loggers
+              readOnly: true
+              mountPath: /app/loggers
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+            - name: svc
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: ENABLE_INSTANA
+              value: "false"
+            - name: QUOTE_SVC
+              value: "qotd-quote.qotd.svc.cluster.local:3001"
+            - name: AUTHOR_SVC
+              value: "qotd-author.qotd.svc.cluster.local:3002"
+            - name: RATING_SVC
+              value: "qotd-rating.qotd.svc.cluster.local:3004"
+            - name: PDF_SVC
+              value: "qotd-pdf.qotd.svc.cluster.local:3005"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-web
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: web
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      nodePort: 30010
+      name: http
+  selector:
+    app: qotd-web
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-web-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: web
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: svc
+  selector:
+    app: qotd-web
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-web-int
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: web
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-web
+
+

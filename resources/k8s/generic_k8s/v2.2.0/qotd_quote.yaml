@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qotd-quote
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-quote
+  template:
+    metadata:
+      labels:
+        app: qotd-quote
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: qotd-quote
+          image: registry.gitlab.com/quote-of-the-day/quote-service:2.2.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+            - name: svc
+              containerPort: 8081
+              protocol: TCP
+          env:
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: ENABLE_INSTANA
+              value: "false"
+            - name: DB_HOST
+              value: "qotd-db.qotd.svc.cluster.local"
+            - name: DB_USER
+              value: "root"
+            - name: DB_PASS
+              value: "<DB PASSWORD>"
+            - name: DB_NAME
+              value: "qotd"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-quote
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3001
+      targetPort: 3001
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-quote
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-quote-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8081
+      targetPort: 8081
+      protocol: TCP
+      name: svc
+  selector:
+    app: qotd-quote

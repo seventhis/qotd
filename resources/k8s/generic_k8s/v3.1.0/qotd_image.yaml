@@ -1,0 +1,116 @@
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: qotd-image-call-distribution-overrides
+#   namespace: qotd
+# data:
+#   overides.json: { }  # this is just a placeholder
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: qotd-image-loggers
+#   namespace: qotd
+# data:
+#   overides.json: {  } # placeholder
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: qotd-image
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qotd-image
+  template:
+    metadata:
+      labels:
+        app: qotd-image
+    spec:
+      # volumes:
+      #   - name: qotd-image-loggers
+      #     configMap:
+      #       name: qotd-image-loggers
+      #       defaultMode: 420
+      #   - name: qotd-image-call-distribution-overrides
+      #     configMap:
+      #       name: qotd-image-call-distribution-overrides
+      #       defaultMode: 420
+      restartPolicy: Always
+      containers:
+        - name: qotd-image
+          image: registry.gitlab.com/quote-of-the-day/qotd-image-service:3.1.0
+          imagePullPolicy: Always
+          # volumeMounts:
+          #   - name: qotd-image-loggers
+          #     readOnly: true
+          #     mountPath: /app/loggers
+          #   - name: qotd-image-call-distribution-overrides
+          #     readOnly: true
+          #     mountPath: /app/config
+          ports:
+            - name: http
+              containerPort: 3003
+              protocol: TCP
+            - name: svc
+              containerPort: 8083
+              protocol: TCP
+          env:
+            - name: LOCAL_LOGGING
+              value: "false"
+            - name: ENABLE_INSTANA
+              value: "false"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "800Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-image
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3003
+      targetPort: 3003
+      protocol: TCP
+      name: http
+  selector:
+    app: qotd-image
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qotd-image-svc
+  namespace: qotd
+  labels:
+    app: qotd
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8083
+      targetPort: 8083
+      protocol: TCP
+      name: svc
+  selector:
+    app: qotd-image
